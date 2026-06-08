@@ -32,11 +32,17 @@ const peer = peerFor(account);
 const now = () => new Date().toISOString();
 const log = (...a: unknown[]) => console.log(`[${account}]`, ...a);
 
+// --relay: a pure store-and-forward node. Joins the group topic and gossips/holds the op-log
+// so messages survive while peers are offline, but does NOT announce a profile or participate
+// — invisible infrastructure, nothing else.
+const relayMode = process.argv.includes("--relay");
+
 // Load persisted log (merge tolerates the receipts auto-emitted for our DMs).
 peer.merge(loadOps(account), now());
 // Announce presence so peers learn our encryption key (→ DM-able) AND our principal cert
-// (→ provenance) even before we post content. Re-announce if we gained a cert since.
-{
+// (→ provenance) even before we post content. Re-announce if we gained a cert since. Skipped
+// entirely in relay mode.
+if (!relayMode) {
   const profiles = peer.export().filter((o) => o.author === peer.id && (o.payload as Record<string, unknown>).kind === "profile");
   const hasCertProfile = profiles.some((o) => (o.payload as Record<string, unknown>).cert);
   if (profiles.length === 0 || (id.cert && !hasCertProfile)) {

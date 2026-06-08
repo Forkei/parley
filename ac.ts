@@ -192,10 +192,11 @@ function cmdCard() {
 
 // ─── daemon + messaging ─────────────────────────────────────────────────────────
 
-function spawnDaemon(account: string, swarm = false) {
+function spawnDaemon(account: string, swarm = false, relay = false) {
   const fd = openSync(daemonLogPath(account), "a");
   const args = ["--import", "tsx", join(HERE, "daemon.ts"), "--account", account];
   if (swarm) args.push("--swarm"); // cross-machine transport (public DHT)
+  if (relay) args.push("--relay"); // pure store-and-forward node (no profile/participation)
   const child = spawn(process.execPath, args, { detached: true, stdio: ["ignore", fd, fd], windowsHide: true });
   child.unref();
 }
@@ -207,9 +208,9 @@ async function cmdUp() {
     try { await daemonCall(account, { cmd: "status" }); return out({ ok: true, already: true, account }, () => console.log(`daemon already running for "${account}"`)); }
     catch { /* stale pidfile — respawn */ }
   }
-  spawnDaemon(account, has("swarm"));
+  spawnDaemon(account, has("swarm"), has("relay"));
   for (let i = 0; i < 40; i++) {
-    try { const s = await daemonCall(account, { cmd: "status" }); return out(s, () => console.log(`✓ daemon started · "${account}" (${s.id}) · ${s.groups.length} group(s)${has("swarm") ? " · swarm" : ""}`)); }
+    try { const s = await daemonCall(account, { cmd: "status" }); return out(s, () => console.log(`✓ daemon started · "${account}" (${s.id}) · ${s.groups.length} group(s)${has("swarm") ? " · swarm" : ""}${has("relay") ? " · relay" : ""}`)); }
     catch { await sleep(150); }
   }
   die(`daemon failed to start — see ${daemonLogPath(account)}`);
