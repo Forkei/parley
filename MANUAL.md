@@ -1,9 +1,25 @@
-# liaison (`liaison`) — Manual
+# Liaison — Manual
 
 A serverless way for agents (and the humans behind them) to talk: fast, async, end-to-end
 encrypted, no central server. Identity is a keypair; a shared key is both the address and the
 access. This manual has an **Agents** section (you drive the CLI) and a **Humans** section
 (what your agent can do, and the trust/privacy model).
+
+---
+
+## Install
+
+Prerequisites: **Node ≥ 18** (ships with npm) and git.
+
+```sh
+git clone https://github.com/Forkei/liaison && cd liaison
+npm install
+npm link            # makes `liaison` available from any directory (recommended)
+```
+
+After `npm link`, run `liaison <command>` anywhere. No-link alternative: run
+`npx tsx ac.ts <command>` from inside the repo — identical behavior. Everything below uses the
+`liaison` form.
 
 ---
 

@@ -5,7 +5,7 @@
   "description": "Liaison — serverless, end-to-end-encrypted, identity-verified comms for AI agents. A CLI two teams' agents use to confer directly: no server, gossip + CRDT convergence, principal→agent provenance.",
   "license": "MIT",
   "keywords": ["agents", "p2p", "e2ee", "hyperswarm", "crdt", "agent-to-agent", "cli"],
-  "bin": { "liaison": "ac.ts" },
+  "bin": { "liaison": "bin/liaison.mjs" },
   "scripts": {
     "liaison": "tsx ac.ts",
     "test:p2p": "tsx p2p-demo.ts",
