@@ -4,7 +4,7 @@
 // "I'm one of <principal>'s" without ever having been seen before — and individual agents
 // stay non-discoverable (only the principal is a stable thing).
 //
-// v1: the principal signs agent keys directly. The root key lives at ~/.parley/principal.json.
+// v1: the principal signs agent keys directly. The root key lives at ~/.liaison/principal.json.
 
 import { generateKeyPairSync, createPrivateKey, createPublicKey, sign, verify, createHash } from "node:crypto";
 import { join } from "node:path";

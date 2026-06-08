@@ -53,7 +53,7 @@ if (postArg) {
 writeFeed();
 
 const swarm = new Hyperswarm(bootstrap ? { bootstrap } : {});
-const topic = createHash("sha256").update(`agent-comms:${topicKey}`).digest(); // 32 bytes
+const topic = createHash("sha256").update(`liaison:${topicKey}`).digest(); // 32 bytes
 const conns = new Set<Duplex>();
 
 function send(conn: Duplex, ops: Op[]) {

@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
-// agent-comms daemon — one per account. Owns the Peer (keys + op-log), runs the local
+// liaison daemon — one per account. Owns the Peer (keys + op-log), runs the local
 // transport (localhost TCP + the peer registry; same-machine discovery, no DHT yet —
-// Hyperswarm is the cross-machine transport, next), and serves an IPC socket the `parley` CLI
+// Hyperswarm is the cross-machine transport, next), and serves an IPC socket the `liaison` CLI
 // drives. SINGLE WRITER of the op-log → no clock divergence, no append races.
 //
 //   node --import tsx daemon.ts --account <a>
@@ -59,8 +59,8 @@ function myGroupNames(): Set<string> { return new Set(listGroups(account).map((g
 
 const sockets = new Set<Duplex>(); // gossip streams — local TCP AND swarm, treated identically
 const dialed = new Set<number>(); // ports we've initiated to (avoid duplicate dials)
-const waiters: Array<{ conn: Socket; afterLamport: number }> = []; // one-shot (parley wait)
-const listeners: Array<{ conn: Socket; afterLamport: number }> = []; // streaming (parley listen)
+const waiters: Array<{ conn: Socket; afterLamport: number }> = []; // one-shot (liaison wait)
+const listeners: Array<{ conn: Socket; afterLamport: number }> = []; // streaming (liaison listen)
 
 function sendOps(sock: Duplex, ops: Op[]) {
   try { sock.write(JSON.stringify({ type: "ops", ops }) + "\n"); } catch { /* gone */ }
@@ -97,14 +97,14 @@ function wireGossip(sock: Duplex) {
 
 const server = createServer((sock) => wireGossip(sock));
 
-// Cross-machine transport (opt-in: --swarm or PARLEY_SWARM=1). Hyperswarm finds peers on
+// Cross-machine transport (opt-in: --swarm or LIAISON_SWARM=1). Hyperswarm finds peers on
 // the public DHT by topic = hash(group key) and hole-punches direct connections. The gossip
 // handler is transport-agnostic, so swarm conns feed the SAME wireGossip. Local TCP stays on
 // for same-machine. CRDT union-by-id makes any overlap between transports harmless.
-const swarmEnabled = process.argv.includes("--swarm") || process.env.PARLEY_SWARM === "1";
+const swarmEnabled = process.argv.includes("--swarm") || process.env.LIAISON_SWARM === "1";
 let swarm: Hyperswarm | null = null;
 const swarmTopics = new Set<string>();
-const topicBuf = (key: string) => createHash("sha256").update(`agent-comms:${key}`).digest();
+const topicBuf = (key: string) => createHash("sha256").update(`liaison:${key}`).digest();
 function swarmJoinGroups() {
   if (!swarm) return;
   for (const g of listGroups(account)) {
@@ -154,7 +154,7 @@ function notifyWaiters() {
     }
   }
 }
-// Streaming subscribers (parley listen): push EVERY new relevant message, keep the conn open.
+// Streaming subscribers (liaison listen): push EVERY new relevant message, keep the conn open.
 function pushToListeners() {
   if (!listeners.length) return;
   const feed = peer.feed();
@@ -167,7 +167,7 @@ function pushToListeners() {
 }
 const maxLamport = () => peer.feed().reduce((m, x) => Math.max(m, x.lamport), 0);
 
-// ─── IPC server (the `parley` CLI talks to this) ────────────────────────────────────
+// ─── IPC server (the `liaison` CLI talks to this) ────────────────────────────────────
 
 type Req = { cmd: string; [k: string]: unknown };
 function handle(req: Req, reply: (r: unknown) => void, conn: Socket) {
@@ -203,7 +203,7 @@ function handle(req: Req, reply: (r: unknown) => void, conn: Socket) {
       return reply({ ok: true, contacts: [...seen.values()] });
     }
     case "certof": {
-      // The full provenance behind a contact's badge, for `parley verify`. Accepts a short id.
+      // The full provenance behind a contact's badge, for `liaison verify`. Accepts a short id.
       const { id: pid } = req as unknown as { id: string };
       let found: { id: string; name: string; pubkey: string; cert: Cert | null } | null = null;
       for (const op of peer.export()) {
@@ -217,7 +217,7 @@ function handle(req: Req, reply: (r: unknown) => void, conn: Socket) {
     case "post": {
       const { group, text } = req as unknown as { group: string; text: string };
       if (!group || !text) return reply({ error: "post needs group + text" });
-      if (!myGroupNames().has(group)) return reply({ error: `not in group "${group}" — run: parley join ${group} --key <k>` });
+      if (!myGroupNames().has(group)) return reply({ error: `not in group "${group}" — run: liaison join ${group} --key <k>` });
       const op = peer.post({ channel: group, title: text, body: "" }, now());
       persist(); broadcast();
       return reply({ ok: true, id: op.id });

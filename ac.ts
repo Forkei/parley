@@ -1,15 +1,15 @@
 #!/usr/bin/env tsx
-// `parley` — the agent-comms CLI. Step 1: identity persistence + accounts + directory binding.
+// `liaison` — the liaison CLI. Step 1: identity persistence + accounts + directory binding.
 // (Daemon + talking land in the next step.) Designed for an AGENT to drive from a shell:
 // short commands, --json on reads, account resolves from the working directory.
 //
-//   parley init --as <name> [--account <a>]   create a persisted identity, bind this dir to it
-//   parley accounts                            list accounts on this machine
-//   parley use <account>                       bind THIS directory to an account
-//   parley whoami                              show the active account (resolved from cwd)
-//   parley card                                print this agent's shareable contact card
+//   liaison init --as <name> [--account <a>]   create a persisted identity, bind this dir to it
+//   liaison accounts                            list accounts on this machine
+//   liaison use <account>                       bind THIS directory to an account
+//   liaison whoami                              show the active account (resolved from cwd)
+//   liaison card                                print this agent's shareable contact card
 //
-// Account resolution: --account <a>  >  PARLEY_ACCOUNT env  >  directory binding  >  "default".
+// Account resolution: --account <a>  >  LIAISON_ACCOUNT env  >  directory binding  >  "default".
 
 import { connect } from "node:net";
 import { spawn } from "node:child_process";
@@ -41,7 +41,7 @@ function daemonCall(account: string, req: object, opts?: { wait?: boolean }): Pr
     sock.on("error", (e: NodeJS.ErrnoException) => {
       if (timer) clearTimeout(timer);
       reject(new Error(e.code === "ENOENT" || e.code === "ECONNREFUSED"
-        ? `no daemon for "${account}" — run: parley up` : String(e.message)));
+        ? `no daemon for "${account}" — run: liaison up` : String(e.message)));
     });
   });
 }
@@ -67,15 +67,15 @@ const json = has("json");
 const now = () => new Date().toISOString();
 
 function activeAccount(): string {
-  return accountFlag || process.env.PARLEY_ACCOUNT?.trim() || resolveAccount(process.cwd()) || "default";
+  return accountFlag || process.env.LIAISON_ACCOUNT?.trim() || resolveAccount(process.cwd()) || "default";
 }
 const out = (obj: unknown, human: () => void) => { if (json) console.log(JSON.stringify(obj, null, 2)); else human(); };
-const die = (msg: string): never => { console.error(`parley: ${msg}`); process.exit(1); };
+const die = (msg: string): never => { console.error(`liaison: ${msg}`); process.exit(1); };
 
 function cmdInit() {
   const account = accountFlag || "default";
   const name = flag("as") || account;
-  if (accountExists(account)) die(`account "${account}" already exists — try: parley whoami`);
+  if (accountExists(account)) die(`account "${account}" already exists — try: liaison whoami`);
   const id = createAccount(account, name, now());
   bindDir(process.cwd(), account); // this directory now defaults to this account
   // If a principal exists on this machine, vouch for this agent (provenance).
@@ -85,10 +85,10 @@ function cmdInit() {
     console.log(`✓ identity created`);
     console.log(`  account : ${id.account}`);
     console.log(`  id      : ${id.id}   ("${id.name}")`);
-    console.log(`  keys    : ~/.parley/accounts/${id.account}/identity.json  (ed25519 + x25519, local only)`);
+    console.log(`  keys    : ~/.liaison/accounts/${id.account}/identity.json  (ed25519 + x25519, local only)`);
     console.log(`  bound   : this directory → "${id.account}"`);
     if (cert) console.log(`  vouched : by principal "${cert.principal_name}" (${cert.principal_id})`);
-    else console.log(`  note    : no principal — run 'parley principal init --as <you>' first for provenance`);
+    else console.log(`  note    : no principal — run 'liaison principal init --as <you>' first for provenance`);
   });
 }
 
@@ -96,17 +96,17 @@ function cmdPrincipal() {
   const sub = positional[0];
   if (sub === "init") {
     const name = flag("as") || positional[1];
-    if (!name) return die("usage: parley principal init --as <name>");
+    if (!name) return die("usage: liaison principal init --as <name>");
     if (principalExists()) { const p = loadPrincipal()!; return die(`principal already exists: "${p.name}" (${p.id})`); }
     const p = createPrincipal(name, now());
     return out({ ok: true, id: p.id, name: p.name }, () => {
       console.log(`✓ principal "${p.name}" created · ${p.id}`);
       console.log(`  every agent you 'init' on this machine is vouched as "${p.name}".`);
-      console.log(`  keep ~/.parley/principal.json safe — it's your root identity.`);
+      console.log(`  keep ~/.liaison/principal.json safe — it's your root identity.`);
     });
   }
   const p = loadPrincipal();
-  out(p ? { id: p.id, name: p.name } : null, () => console.log(p ? `principal: "${p.name}" (${p.id})` : "(no principal — run: parley principal init --as <name>)"));
+  out(p ? { id: p.id, name: p.name } : null, () => console.log(p ? `principal: "${p.name}" (${p.id})` : "(no principal — run: liaison principal init --as <name>)"));
 }
 
 function provLabel(c: any) { return c.verified ? `✓ ${c.principal}'s agent` : "· unverified"; }
@@ -130,41 +130,41 @@ async function cmdContact() {
   const sub = positional[0];
   if (sub === "name") {
     const id = positional[1]; const petname = positional.slice(2).join(" ");
-    if (!id || !petname) return die("usage: parley contact name <id> <petname>");
+    if (!id || !petname) return die("usage: liaison contact name <id> <petname>");
     setPetname(activeAccount(), id, petname);
     return out({ ok: true, id, petname }, () => console.log(`✓ ${id.slice(0, 8)} → "${petname}"`));
   }
   if (sub === "share") {
     const id = positional[1];
-    if (!id) return die("usage: parley contact share <id>");
+    if (!id) return die("usage: liaison contact share <id>");
     const r = await daemonCall(activeAccount(), { cmd: "share", id });
     if (r.error) return die(r.error);
     return out(r, () => console.log(`✓ shared ${String(r.id).slice(0, 8)} to this machine's address book — sibling agents can now reach them`));
   }
-  die("usage: parley contact name <id> <petname>  |  parley contact share <id>");
+  die("usage: liaison contact name <id> <petname>  |  liaison contact share <id>");
 }
 
 async function cmdInvite() {
   const to = flag("to"); const group = flag("group") || positional[0];
-  if (!to || !group) return die("usage: parley invite --to <id> --group <group>");
+  if (!to || !group) return die("usage: liaison invite --to <id> --group <group>");
   const r = await daemonCall(activeAccount(), { cmd: "invite", to, group });
   if (r.error) return die(r.error);
-  out(r, () => { console.log(r.token); console.log(`  ↳ leak-safe: only that recipient can redeem it →  parley join --invite <token>`); });
+  out(r, () => { console.log(r.token); console.log(`  ↳ leak-safe: only that recipient can redeem it →  liaison join --invite <token>`); });
 }
 
 function cmdAccounts() {
   const active = resolveAccount(process.cwd());
   const list = listAccounts().map((a) => ({ account: a.account, id: a.id, name: a.name, active: a.account === active }));
   out(list, () => {
-    if (!list.length) return console.log("(no accounts yet — run: parley init --as <name>)");
+    if (!list.length) return console.log("(no accounts yet — run: liaison init --as <name>)");
     for (const a of list) console.log(`  ${a.active ? "▶" : " "} ${a.account.padEnd(16)} ${a.id}  "${a.name}"`);
   });
 }
 
 function cmdUse() {
   const account = positional[0] || accountFlag;
-  if (!account) return die("usage: parley use <account>");
-  if (!accountExists(account)) return die(`no such account "${account}" — run: parley --account ${account} init --as <name>`);
+  if (!account) return die("usage: liaison use <account>");
+  if (!accountExists(account)) return die(`no such account "${account}" — run: liaison --account ${account} init --as <name>`);
   bindDir(process.cwd(), account);
   out({ ok: true, account, dir: process.cwd() }, () => console.log(`✓ this directory → "${account}"`));
 }
@@ -172,7 +172,7 @@ function cmdUse() {
 function cmdWhoami() {
   const account = activeAccount();
   const id = loadIdentity(account);
-  if (!id) die(`no active account (resolved "${account}", which doesn't exist) — run: parley init --as <name>`);
+  if (!id) die(`no active account (resolved "${account}", which doesn't exist) — run: liaison init --as <name>`);
   out({ account: id!.account, id: id!.id, name: id!.name, source: accountFlag ? "flag" : resolveAccount(process.cwd()) ? "directory" : "default" },
     () => console.log(`${id!.id}  "${id!.name}"  (account: ${id!.account})`));
 }
@@ -180,10 +180,10 @@ function cmdWhoami() {
 function cmdCard() {
   const account = activeAccount();
   const id = loadIdentity(account);
-  if (!id) die(`no active account — run: parley init --as <name>`);
+  if (!id) die(`no active account — run: liaison init --as <name>`);
   // One paste-able token: fingerprint + enc-key + name. (Safety-words + principal cert
   // come with the principal layer.) enc_pub lets a recipient seal a DM to this agent.
-  const card = `parley://${id!.id}?n=${encodeURIComponent(id!.name)}&k=${id!.enc_pub}`;
+  const card = `liaison://${id!.id}?n=${encodeURIComponent(id!.name)}&k=${id!.enc_pub}`;
   out({ card, id: id!.id, name: id!.name }, () => {
     console.log(card);
     console.log(`  ↳ share this so others can add + DM you  (id ${id!.id}, "${id!.name}")`);
@@ -203,7 +203,7 @@ function spawnDaemon(account: string, swarm = false, relay = false) {
 
 async function cmdUp() {
   const account = activeAccount();
-  if (!loadIdentity(account)) return die(`no account "${account}" — run: parley init --as <name>`);
+  if (!loadIdentity(account)) return die(`no account "${account}" — run: liaison init --as <name>`);
   if (existsSync(pidPath(account))) {
     try { await daemonCall(account, { cmd: "status" }); return out({ ok: true, already: true, account }, () => console.log(`daemon already running for "${account}"`)); }
     catch { /* stale pidfile — respawn */ }
@@ -235,7 +235,7 @@ async function cmdJoin() {
     return out(r, () => console.log(`✓ joined "${r.group}" via invite`));
   }
   const name = positional[0]; const key = flag("key");
-  if (!name || !key) return die("usage: parley join <group> --key <key>   |   parley join --invite <token>");
+  if (!name || !key) return die("usage: liaison join <group> --key <key>   |   liaison join --invite <token>");
   const r = await daemonCall(activeAccount(), { cmd: "join", name, key });
   if (r.error) return die(r.error);
   out(r, () => console.log(`✓ joined "${name}"`));
@@ -243,7 +243,7 @@ async function cmdJoin() {
 
 async function cmdPost() {
   const group = positional[0]; const text = positional.slice(1).join(" ");
-  if (!group || !text) return die('usage: parley post <group> "<text>"');
+  if (!group || !text) return die('usage: liaison post <group> "<text>"');
   const r = await daemonCall(activeAccount(), { cmd: "post", group, text });
   if (r.error) return die(r.error);
   out(r, () => console.log(`✓ → #${group}  (${String(r.id).slice(0, 8)})`));
@@ -251,7 +251,7 @@ async function cmdPost() {
 
 async function cmdDm() {
   const to = positional[0]; const text = positional.slice(1).join(" ");
-  if (!to || !text) return die('usage: parley dm <id> "<text>"');
+  if (!to || !text) return die('usage: liaison dm <id> "<text>"');
   const r = await daemonCall(activeAccount(), { cmd: "dm", to, text });
   if (r.error) return die(r.error);
   out(r, () => console.log(`✓ dm → ${to.slice(0, 8)}  (${String(r.id).slice(0, 8)})`));
@@ -263,7 +263,7 @@ function renderMsgs(msgs: any[]) {
     const where = m.dm ? "DM" : `#${m.channel}`;
     const rcpt = m.receipts?.length ? `  ⟦${m.receipts.map((r: any) => `${r.kind}:${r.by.slice(0, 6)}`).join(",")}⟧` : "";
     const acks = m.acks?.length ? `  ack×${m.acks.length}` : "";
-    // Lead with the short message id so a received message is directly actionable (parley status <id>).
+    // Lead with the short message id so a received message is directly actionable (liaison status <id>).
     console.log(`  ${String(m.id).slice(0, 8)}  ${where.padEnd(10)} ${String(m.from).slice(0, 8)} → ${m.title}${rcpt}${acks}`);
   }
 }
@@ -306,7 +306,7 @@ async function cmdPs() {
   out(all ? rows : rows[0], () => {
     for (const r of rows) {
       if (r.running) console.log(`  ● ${String(r.account).padEnd(16)} running · ${r.id} · ${r.peers} peer(s) · ${r.groups.length} grp · ${r.ops} ops`);
-      else console.log(`  ○ ${String(r.account).padEnd(16)} not running   (run: parley up)`);
+      else console.log(`  ○ ${String(r.account).padEnd(16)} not running   (run: liaison up)`);
     }
   });
   if (!all && rows[0] && !rows[0].running) process.exitCode = 1; // scriptable: nonzero = down
@@ -314,7 +314,7 @@ async function cmdPs() {
 
 async function cmdVerify() {
   const id = positional[0];
-  if (!id) return die("usage: parley verify <id>");
+  if (!id) return die("usage: liaison verify <id>");
   const account = activeAccount();
   const r = await daemonCall(account, { cmd: "certof", id });
   if (r.error) return die(r.error);
@@ -360,7 +360,7 @@ function runHandler(account: string, cmd: string, m: any): Promise<void> {
 
 function cmdListen() {
   const account = activeAccount();
-  if (!loadIdentity(account)) return die(`no account "${account}" — run: parley init --as <name>`);
+  if (!loadIdentity(account)) return die(`no account "${account}" — run: liaison init --as <name>`);
   const exec = flag("exec"); // optional auto-reply handler
   const sock = connect(socketPath(account));
   let buf = "";
@@ -381,7 +381,7 @@ function cmdListen() {
       if (exec) queue = queue.then(() => runHandler(account, exec, m)); // serialize replies
     }
   });
-  sock.on("error", (e: NodeJS.ErrnoException) => die(e.code === "ENOENT" || e.code === "ECONNREFUSED" ? `no daemon for "${account}" — run: parley up` : String(e.message)));
+  sock.on("error", (e: NodeJS.ErrnoException) => die(e.code === "ENOENT" || e.code === "ECONNREFUSED" ? `no daemon for "${account}" — run: liaison up` : String(e.message)));
   // the open socket keeps the process alive until Ctrl-C
 }
 
@@ -394,7 +394,7 @@ const commands: Record<string, () => void | Promise<void>> = {
 
 if (!cmd || cmd === "help" || cmd === "--help") {
   console.log([
-    "parley — agent-comms",
+    "liaison — liaison",
     "  principal: principal init --as <name>   (root identity — vouches for your agents)",
     "  identity:  init --as <name> [--account <a>] · accounts · use <account> · whoami · card",
     "  daemon:    up [--swarm] · down [--all] · ps [--all]   (ps: is it running? exit 0/1)",
@@ -408,5 +408,5 @@ if (!cmd || cmd === "help" || cmd === "--help") {
   process.exit(0);
 }
 const handler = commands[cmd];
-if (!handler) die(`unknown command "${cmd}" (try: parley help)`);
+if (!handler) die(`unknown command "${cmd}" (try: liaison help)`);
 Promise.resolve(handler()).catch((e) => die(e instanceof Error ? e.message : String(e)));

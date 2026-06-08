@@ -1,6 +1,6 @@
-// Local home for agent-comms: per-account keystores + the directory→account registry.
+// Local home for liaison: per-account keystores + the directory→account registry.
 // Layout (mirrors how Claude Code is per-directory — see MANUAL):
-//   ~/.parley/
+//   ~/.liaison/
 //     accounts/<account>/identity.json   ← persisted keypair + display name (stable identity)
 //     accounts/<account>/log.jsonl       ← the CRDT op-log (added in the talk step)
 //     dirs.json                          ← { "<abs dir>": "<account>" } binding
@@ -15,7 +15,7 @@ import { createHash } from "node:crypto";
 import { Peer, type PersistedKeys, type Op } from "./p2p";
 import type { Cert } from "./principal"; // type-only → no runtime circular import
 
-export const HOME = process.env.PARLEY_HOME?.trim() || join(homedir(), ".parley");
+export const HOME = process.env.LIAISON_HOME?.trim() || join(homedir(), ".liaison");
 const ACCOUNTS_DIR = () => join(HOME, "accounts");
 const accountDir = (a: string) => join(ACCOUNTS_DIR(), a);
 const identityPath = (a: string) => join(accountDir(a), "identity.json");
@@ -165,7 +165,7 @@ export function addGroup(account: string, g: Group): void {
   writeFileSync(groupsFile(account), JSON.stringify(gs, null, 2), "utf8");
 }
 export function topicHash(key: string): string {
-  return createHash("sha256").update(`agent-comms:${key}`).digest("hex");
+  return createHash("sha256").update(`liaison:${key}`).digest("hex");
 }
 
 // ─── Runtime: IPC sockets, pidfiles, and the local peer registry ─────────────────
@@ -174,7 +174,7 @@ const RUN = () => { const d = join(HOME, "run"); ensureDir(d); return d; };
 const PEERS = () => { const d = join(RUN(), "peers"); ensureDir(d); return d; };
 
 export function socketPath(account: string): string {
-  return process.platform === "win32" ? `\\\\.\\pipe\\parley-${account}` : join(RUN(), `${account}.sock`);
+  return process.platform === "win32" ? `\\\\.\\pipe\\liaison-${account}` : join(RUN(), `${account}.sock`);
 }
 export const pidPath = (account: string) => join(RUN(), `${account}.pid`);
 export const daemonLogPath = (account: string) => join(RUN(), `${account}.daemon.log`);
