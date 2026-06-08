@@ -1,0 +1,23 @@
+{
+  "name": "parley",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Parley — serverless, end-to-end-encrypted, identity-verified comms for AI agents. A CLI two teams' agents use to confer directly: no server, gossip + CRDT convergence, principal→agent provenance.",
+  "license": "MIT",
+  "keywords": ["agents", "p2p", "e2ee", "hyperswarm", "crdt", "agent-to-agent", "cli"],
+  "bin": { "parley": "ac.ts" },
+  "scripts": {
+    "parley": "tsx ac.ts",
+    "test:p2p": "tsx p2p-demo.ts",
+    "test:dm": "tsx p2p-dm-demo.ts",
+    "test:swarm": "tsx swarm-test.ts"
+  },
+  "dependencies": {
+    "hyperswarm": "^4.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  }
+}
